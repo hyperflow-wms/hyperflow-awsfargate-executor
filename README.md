@@ -34,7 +34,7 @@ Example steps:
 
 aws ecr get-login --no-include-email --region eu-west-1
 
-sudo docker login -u AWS -p <long string from command above> https://123456789.dkr.ecr.eu-west-1.amazonaws.com
+sudo docker login -u AWS -p string https://123456789.dkr.ecr.eu-west-1.amazonaws.com
   
 sudo docker tag handler:latest 123456789.dkr.ecr.eu-west-1.amazonaws.com/handler:latest
 
