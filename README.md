@@ -45,7 +45,7 @@ First, go to think link https://eu-west-1.console.aws.amazon.com/ecs/home?region
 
 Click get started, then select custom container and configure it. Give it some name, image URI can be found in ECR repository, for example:
 
-123456789.dkr.ecr.eu-west-1.amazonaws.com/handler-repo:latest
+123456789.dkr.ecr.eu-west-1.amazonaws.com/handler:latest
 
 Add port mapping for 8080 tcp then click update.
 
