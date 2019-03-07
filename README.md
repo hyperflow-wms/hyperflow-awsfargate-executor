@@ -57,7 +57,7 @@ Set cluter name and next and create.
 
 On the next page, you should be able to see the status of the service you just created. Wait for the steps to complete and then click on View Service. 
 
-## Running hyperflow with AWS Fargate
+## Running Hyperflow with AWS Fargate
 Once on the services page, click on the Tasks tab to see the different tasks running for your application. Click on the task id. In the Task Details page, you should be able to see the Public IP under the network section. Copy this IP address.
 
 Update your workflow so it uses RESTServiceCommand function. 
