@@ -62,12 +62,10 @@ Once on the services page, click on the Tasks tab to see the different tasks run
 
 Update your workflow so it uses RESTServiceCommand function. 
 
-In RESTServiceCommand.config.js set SERVICE_URL to copied IP address plus 8080 port, for example:
+Running Hyperflow with AWS Fargate is identical like AWS Lambda, you just need to switch SERVICE_URL in RESTServiceCommand.config.js from lambda URL to fargate application endpoint which is copied IP address (above) plus 8080 port, for example:
+
 http://63.32.93.119:8080
 
-Also remember to set storage (S3) and bucket & prefix. It is mandatory for this executor.
-
-Then you can run a workflow:
-./hyperflow/bin/hflow run workflow.json
+Also remember to set storage (S3) and bucket & prefix. S3 service is mandatory for this executor.
 
 For more details check hyperflow page: https://github.com/hyperflow-wms/hyperflow. 
