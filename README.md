@@ -67,7 +67,7 @@ http://63.32.93.119:8080
 
 Also remember to set storage (S3) and bucket & prefix. It is mandatory for this executor.
 
-Then you can ran a workflow:
+Then you can run a workflow:
 ./hyperflow/bin/hflow run workflow.json
 
 For more details check hyperflow page: https://github.com/hyperflow-wms/hyperflow. 
