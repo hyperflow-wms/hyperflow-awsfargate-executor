@@ -40,7 +40,7 @@ function handleRequest(req, res) {
     }
     const files = inputs.slice();
     files.push(executable);
-    const file_prefix = Math.random().toString(36).substring(10);
+    const file_prefix = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8);
 
     const t_start = Date.now();
 
@@ -126,7 +126,11 @@ function handleRequest(req, res) {
 
         if (proc_name.endsWith(".js")) {
             proc = childProcess.fork(proc_name, args, {cwd: "/tmp" + "/" + file_prefix});
-        } else {
+        } else if(proc_name.endsWith(".jar")) {
+			let java_args = ['-jar', proc_name];
+			const program_args = java_args.concat(args);
+			proc = childProcess.spawn('java', program_args, {cwd: "/tmp" + "/" + file_prefix});
+		} else {
             process.env.PATH = ".:" + __dirname;
             proc = childProcess.spawn(proc_name, args, {cwd: "/tmp" + "/" + file_prefix});
 
