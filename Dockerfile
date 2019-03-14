@@ -1,4 +1,4 @@
-FROM openjdk:latest
+FROM openjdk:7-jre-slim
 WORKDIR /usr/src/app
 COPY package*.json ./
 RUN apt-get update

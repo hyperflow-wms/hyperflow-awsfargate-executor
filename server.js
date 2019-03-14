@@ -40,7 +40,7 @@ function handleRequest(req, res) {
     }
     const files = inputs.slice();
     files.push(executable);
-    const file_prefix = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8);
+    const file_prefix = "aws_"+Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8);
 
     const t_start = Date.now();
 
@@ -50,6 +50,7 @@ function handleRequest(req, res) {
     console.log("Outputs:    " + outputs);
     console.log("Bucket:     " + bucket_name);
     console.log("Prefix:     " + prefix);
+	console.log("Stdout:     " + body.stdout);
 
     async.waterfall([
         download,
@@ -96,9 +97,9 @@ function handleRequest(req, res) {
                             return;
                         }
                         if (file === executable) {
-                            console.log("Downloaded executable " + JSON.stringify(params));
+                            console.log("Downloaded executable " + path);
                         } else {
-                            console.log("Downloaded file " + JSON.stringify(params));
+                            console.log("Downloaded and saved file " + path);
                         }
                         callback();
                     });
@@ -126,12 +127,13 @@ function handleRequest(req, res) {
 
         if (proc_name.endsWith(".js")) {
             proc = childProcess.fork(proc_name, args, {cwd: "/tmp" + "/" + file_prefix});
-        } else if(proc_name.endsWith(".jar")) {
+        } 
+		else if(proc_name.endsWith(".jar")) {
 			let java_args = ['-jar', proc_name];
 			const program_args = java_args.concat(args);
 			proc = childProcess.spawn('java', program_args, {cwd: "/tmp" + "/" + file_prefix});
-		} else {
-            process.env.PATH = ".:" + __dirname;
+		}
+		else {
             proc = childProcess.spawn(proc_name, args, {cwd: "/tmp" + "/" + file_prefix});
 
             proc.stdout.on("data", function (exedata) {
@@ -142,6 +144,11 @@ function handleRequest(req, res) {
                 console.log("Stderr: " + executable + exedata);
             });
         }
+		
+		if (body.stdout) {
+			let stdoutStream = fs.createWriteStream("/tmp" + "/" + file_prefix + "/" + body.stdout, {flags: 'w'});
+			proc.stdout.pipe(stdoutStream);
+		}
 
         proc.on("error", function (code) {
             console.error("Error!!" + executable + JSON.stringify(code));
