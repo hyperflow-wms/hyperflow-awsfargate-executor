@@ -57,7 +57,7 @@ function handleRequest(req, res) {
         execute,
         upload
     ], function (err) {
-		rimraf("/tmp/" + file_prefix, function () { console.log("Clearing tmp files done."); });
+		rimraf("/tmp/" + file_prefix, function () { console.log("Clearing tmp files done: "+file_prefix); });
         let body;
 		if (err) {
             console.error("Error: " + err);
@@ -108,7 +108,6 @@ function handleRequest(req, res) {
         }, function (err) {
             if (err) {
                 console.error("Failed to download file:" + err);
-                // 500 status code will force the Hyperflow to retry request in case of race condition on S3
 				res.status(500);
                 res.send("S3 download error: " + JSON.stringify(err));
             } else {
