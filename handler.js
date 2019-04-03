@@ -57,7 +57,7 @@ function handleRequest(request) {
                     console.log("Error downloading file " + JSON.stringify(params));
                     process.exit(1)
                 } else {
-                    const path = "/***tmp/" + file;
+                    const path = "/tmp/" + file;
                     fs.writeFile(path, data.Body, function (err) {
                         if (err) {
                             console.log("Unable to save file " + path);
