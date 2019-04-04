@@ -164,4 +164,9 @@ function handleRequest(request) {
     }
 }
 
+if (!process.argv[2]) {
+    console.log("Received empty request, exiting...");
+    process.exit(1);
+}
+
 handleRequest(JSON.parse(process.argv[2]));
