@@ -106,7 +106,7 @@ function handleRequest(request) {
         }
 
         if (request.stdout) {
-            let stdoutStream = fs.createWriteStream("/tmp" + "/" + body.stdout, {flags: 'w'});
+            let stdoutStream = fs.createWriteStream("/tmp" + "/" + request.stdout, {flags: 'w'});
             proc.stdout.pipe(stdoutStream);
         }
 
