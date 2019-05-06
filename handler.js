@@ -6,7 +6,10 @@ const async = require("async");
 const aws = require("aws-sdk");
 const s3 = new aws.S3();
 
+const monitoring = require('./monitoring');
+
 function handleRequest(request) {
+    const start = Date.now();
 
     const executable = request.executable;
     const args = request.args;
@@ -25,21 +28,20 @@ function handleRequest(request) {
     console.log("Prefix:     " + prefix);
     console.log("Stdout:     " + request.stdout);
 
-    const t_start = Date.now();
-
     async.waterfall([
+        monitoring.init,
         download,
         execute,
-        upload
+        upload,
     ], function (err) {
         if (err) {
-            console.error("Error: " + err);
-            process.exit(1)
+            console.error(`Error in waterfall: ${err}`);
+            process.exit(1);
         } else {
-            console.log("Success");
-            const t_end = Date.now();
-            const duration = t_end - t_start;
-            console.log("AWS Fargate exit: duration " + duration + " ms, executable: " + executable + " args: " + args);
+            monitoring.reportExecTime(start, Date.now(), function (err, duration) {
+                console.log(`AWS Fargate exit: duration ${duration} ms, executable: ${executable}, args: ${args}`);
+                process.exit(0);
+            });
         }
     });
 
@@ -52,6 +54,7 @@ function handleRequest(request) {
                 Bucket: bucket_name,
                 Key: prefix + "/" + file
             };
+
             s3.getObject(params, function (err, data) {
                 if (err) {
                     console.log("Error downloading file " + JSON.stringify(params));
@@ -151,7 +154,6 @@ function handleRequest(request) {
                 });
             });
 
-        }, function (err) {
         }, function (err) {
             if (err) {
                 console.log("Error uploading file " + err);
