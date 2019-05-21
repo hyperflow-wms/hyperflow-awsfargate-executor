@@ -8,6 +8,17 @@ const s3 = new aws.S3();
 
 function handleRequest(request) {
 
+    const metrics = {
+        "fargateStart": Date.now(),
+        "fargateEnd": "",
+        "downloadStart": "",
+        "downloadEnd": "",
+        "executionStart": "",
+        "executionEnd": "",
+        "uploadStart": "",
+        "uploadEnd": "",
+    };
+
     const executable = request.executable;
     const args = request.args;
     const bucket_name = request.options.bucket;
@@ -15,6 +26,7 @@ function handleRequest(request) {
     const inputs = request.inputs.map(input => input.name);
     const outputs = request.outputs.map(output => output.name);
     const files = inputs.slice();
+    const logName = request.logName;
     files.push(executable);
 
     console.log("Executable: " + executable);
@@ -25,25 +37,36 @@ function handleRequest(request) {
     console.log("Prefix:     " + prefix);
     console.log("Stdout:     " + request.stdout);
 
-    const t_start = Date.now();
-
     async.waterfall([
         download,
         execute,
         upload
-    ], function (err) {
+    ], async function (err) {
         if (err) {
             console.error("Error: " + err);
             process.exit(1)
         } else {
             console.log("Success");
-            const t_end = Date.now();
-            const duration = t_end - t_start;
-            console.log("AWS Fargate exit: duration " + duration + " ms, executable: " + executable + " args: " + args);
+            metrics.fargateEnd = Date.now();
+            const metricsString = "lambda start: " + metrics.fargateStart + " lambda end: " + metrics.fargateEnd +
+                " download start: " + metrics.downloadStart + " download end: " + metrics.downloadEnd +
+                " execution start: " + metrics.executionStart + " execution end: " + metrics.executionEnd +
+                " upload start: " + metrics.uploadStart + " upload end: " + metrics.uploadEnd;
+            if (logName !== undefined) {
+                await s3.putObject({
+                    Bucket: bucket_name,
+                    Key: "logs/" + logName,
+                    ContentType: 'text/plain',
+                    Body: metricsString
+                }).promise();
+            } else {
+                console.log(metricsString);
+            }
         }
     });
 
     function download(callback) {
+        metrics.downloadStart = Date.now();
         async.each(files, function (file, callback) {
 
             console.log("Downloading " + bucket_name + "/" + prefix + "/" + file);
@@ -70,6 +93,7 @@ function handleRequest(request) {
                 }
             });
         }, function (err) {
+            metrics.downloadEnd = Date.now();
             if (err) {
                 console.error("Failed to download file:" + err);
                 process.exit(1)
@@ -81,6 +105,7 @@ function handleRequest(request) {
     }
 
     function execute(callback) {
+        metrics.executionStart = Date.now();
         const proc_name = /tmp/ + "/" + executable;
         fs.chmodSync(proc_name, "777");
 
@@ -119,11 +144,13 @@ function handleRequest(request) {
 
         proc.on("close", function () {
             console.log("My exe close " + executable);
+            metrics.executionEnd = Date.now();
             callback()
         });
     }
 
     function upload(callback) {
+        metrics.uploadStart = Date.now();
         async.each(outputs, function (file, callback) {
 
             console.log("Uploading " + bucket_name + "/" + prefix + "/" + file);
@@ -152,7 +179,7 @@ function handleRequest(request) {
             });
 
         }, function (err) {
-        }, function (err) {
+            metrics.uploadEnd = Date.now();
             if (err) {
                 console.log("Error uploading file " + err);
                 process.exit(1)
