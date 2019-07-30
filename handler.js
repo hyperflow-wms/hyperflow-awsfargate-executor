@@ -48,7 +48,7 @@ function handleRequest(request) {
         } else {
             console.log("Success");
             metrics.fargateEnd = Date.now();
-            const metricsString = "lambda start: " + metrics.fargateStart + " lambda end: " + metrics.fargateEnd +
+            const metricsString = "fargate start: " + metrics.fargateStart + " fargate end: " + metrics.fargateEnd +
                 " download start: " + metrics.downloadStart + " download end: " + metrics.downloadEnd +
                 " execution start: " + metrics.executionStart + " execution end: " + metrics.executionEnd +
                 " upload start: " + metrics.uploadStart + " upload end: " + metrics.uploadEnd;
@@ -191,9 +191,22 @@ function handleRequest(request) {
     }
 }
 
-if (!process.argv[2]) {
+let arg = process.argv[2];
+
+if (!arg) {
     console.log("Received empty request, exiting...");
     process.exit(1);
 }
 
-handleRequest(JSON.parse(process.argv[2]));
+if (arg.startsWith("S3")) {
+    const params = JSON.parse(arg.split("=")[1]);
+    console.log("Getting executable config from S3: " + JSON.stringify(params));
+    s3.getObject(params, function (err, data) {
+        if (err)
+            return err;
+        arg = data.Body.toString();
+        handleRequest(JSON.parse(arg));
+    });
+} else {
+    handleRequest(JSON.parse(arg));
+}
