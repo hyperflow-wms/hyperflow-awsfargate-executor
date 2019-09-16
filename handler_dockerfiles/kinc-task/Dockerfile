@@ -1,18 +1,14 @@
 FROM fedora:25
 
-RUN dnf -y update && dnf clean all
+RUN curl -sL https://rpm.nodesource.com/setup_8.x | bash -
+RUN dnf -y install nodejs
 
+RUN dnf -y update && dnf clean all
 RUN dnf -y --setopt=install_weak_deps=False --best install \
 	lapack \
 	gcc-gfortran \
 	libstdc++ \
 	openblas \
-	vim \
-	wget \
-	procps \
-	findutils \
-	nodejs \
-	npm \
 	&& dnf clean all
 		
 WORKDIR /home
