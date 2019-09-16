@@ -1,176 +1,136 @@
 'use strict';
 
-const INTERFACE = process.env.INTERFACE || 'eth0';
+const INTERFACE = process.env.INTERFACE || null;
 const DISK_OPTS = {
     device: process.env.DISK_DEVICE || 'xvda1',
     units: 'KiB',
 };
 const TASK_ID = process.env.TASK_ID || 'undefinedTaskId';
 const START = process.env.START || 0;
-const PUSH_GW_URL = process.env.PUSH_GW_URL || 'http://localhost:9091';
 const LABELS = process.env.LABELS || '';
+const INFLUXDB_HOST = process.env.INFLUXDB_HOST || 'influxdb';
+const INFLUXDB_DB_NAME = process.env.INFLUXDB_NAME || 'hyperflow-database';
 const COLLECT_INTERVAL = 1000;
 
 const si = require('systeminformation');
 const os_utils = require('os-utils');
 const diskStat = require('disk-stat');
 const async = require('async');
-const prometheus = require('prom-client');
-const gateway = new prometheus.Pushgateway(PUSH_GW_URL);
+const Influx = require('influx');
 
 const fetchMetaData = require('./metadata').fetch;
 
+const MetricDispatcher = function (err, metadata) {
+    this.tags = {
+        containerID: err ? 'undefinedContainerId' : metadata,
+        taskID: TASK_ID,
+        ...this._parseLabels(LABELS)
+    };
+
+    this._collectUsage = this._collectUsage.bind(this);
+
+    // initialize influx, create database and start collecting usage
+    this._initInflux(INFLUXDB_HOST, INFLUXDB_DB_NAME, Object.keys(this.tags))
+        .then(() => setInterval(this._collectUsage, COLLECT_INTERVAL));
+};
+
 // splits labels in form of a string: 'key1=val1,key2=val2', to object: {key1: val1, key2: val2}
-function parseLabels(labelsString) {
+MetricDispatcher.prototype._parseLabels = function (labelsString) {
     return labelsString ? labelsString.split(',')
-        .map(s => s.split('='))
-        .reduce((acc, curr) => {
-            acc[curr[0]] = curr[1];
-            return acc;
-        }, {}) :
-    {};
-}
-
-const labels = {
-    containerID: null,
-    taskID: TASK_ID,
-    ...parseLabels(LABELS)
+            .map(s => s.split('='))
+            .reduce((acc, curr) => {
+                acc[curr[0]] = curr[1];
+                return acc;
+            }, {}) :
+        {};
 };
 
-const labelNames = Object.keys(labels);
+MetricDispatcher.prototype._initInflux = function (url, dbName, tags) {
+    this.influx = new Influx.InfluxDB({
+        host: url,
+        database: dbName,
+        schema: [
+            {
+                measurement: 'performance',
+                fields: {
+                    cpu_usage: Influx.FieldType.FLOAT,
+                    mem_usage: Influx.FieldType.INTEGER,
+                    conn_recv: Influx.FieldType.INTEGER,
+                    conn_transferred: Influx.FieldType.INTEGER,
+                    disk_read: Influx.FieldType.INTEGER,
+                    disk_write: Influx.FieldType.INTEGER
+                },
+                tags: tags
+            },
+            {
+                measurement: 'hflow_task',
+                fields: {
+                    start: Influx.FieldType.FLOAT,
+                    end: Influx.FieldType.FLOAT,
+                    download_start: Influx.FieldType.FLOAT,
+                    download_end: Influx.FieldType.FLOAT,
+                    execute_start: Influx.FieldType.FLOAT,
+                    execute_end: Influx.FieldType.FLOAT,
+                    upload_start: Influx.FieldType.FLOAT,
+                    upload_end: Influx.FieldType.FLOAT
+                },
+                tags: tags
+            },
+        ]
+    });
 
-const prometheusMetrics = {
-    hyperflow_cpu_usage: new prometheus.Gauge({
-        name: 'hyperflow_cpu_usage',
-        help: 'CPU usage',
-        labelNames: labelNames
-    }),
-    hyperflow_memory_usage: new prometheus.Gauge({
-        name: 'hyperflow_memory_usage',
-        help: 'Memory usage',
-        labelNames: labelNames
-    }),
-    hyperflow_connection_received: new prometheus.Gauge({
-        name: 'hyperflow_connection_received',
-        help: 'Received bytes per second',
-        labelNames: labelNames
-    }),
-    hyperflow_connection_transferred: new prometheus.Gauge({
-        name: 'hyperflow_connection_transferred',
-        help: 'Transferred bytes per second',
-        labelNames: labelNames
-    }),
-    hyperflow_disc_read: new prometheus.Gauge({
-        name: 'hyperflow_disc_read',
-        help: 'Read kB per second',
-        labelNames: labelNames
-    }),
-    hyperflow_disc_write: new prometheus.Gauge({
-        name: 'hyperflow_disc_write',
-        help: 'Write kB per second',
-        labelNames: labelNames
-    }),
-    hyperflow_task_execution_time: new prometheus.Gauge({
-        name: 'hyperflow_task_execution_time',
-        help: 'Task execution time in seconds',
-        labelNames: labelNames
-    }),
-    hyperflow_task_execution_time_buckets: new prometheus.Histogram({
-        name: 'hyperflow_task_execution_time_buckets',
-        help: 'Task execution time in seconds',
-        labelNames: labelNames
-    }),
-    hyperflow_task_start_time: new prometheus.Gauge({
-        name: 'hyperflow_task_start_time',
-        help: 'Task start timestamp',
-        labelNames: labelNames
-    }),
-    hyperflow_task_end_time: new prometheus.Gauge({
-        name: 'hyperflow_task_end_time',
-        help: 'Task end timestamp',
-        labelNames: labelNames
-    })
+    return this.influx.createDatabase(dbName)
 };
 
-prometheus.collectDefaultMetrics();
+MetricDispatcher.prototype._write = function (measurement, fields, callback) {
+    this.influx.writeMeasurement(measurement, [{
+        tags: this.tags,
+        fields: fields
+    }]).then(callback).catch(callback);
+};
 
-function collectUsage(callback) {
+MetricDispatcher.prototype._collectUsage = function () {
     async.waterfall([
-        function (callback) {
-            os_utils.cpuUsage(value => {
-                prometheusMetrics.hyperflow_cpu_usage.set(labels, value);
-                callback(null);
-            });
+        callback => {
+            os_utils.cpuUsage(value => this._write('hflow_performance', {cpu_usage: value}, callback));
         },
-        function (callback) {
-            si.mem(data => {
-                prometheusMetrics.hyperflow_memory_usage.set(labels, data.used / 1024);
-                callback(null);
-            });
+        callback => {
+            si.mem(data => this._write('hflow_performance', {mem_usage: data.used / 1024}, callback));
         },
-        function (callback) {
-            si.networkStats(INTERFACE, data => {
-                prometheusMetrics.hyperflow_connection_received.set(labels, data.rx_sec || 0);
-                prometheusMetrics.hyperflow_connection_transferred.set(labels, data.tx_sec || 0);
-                callback(null);
-            });
+        callback => {
+            si.networkStats(INTERFACE, data => this._write('hflow_performance', {
+                conn_recv: data[0].rx_sec,
+                conn_transferred: data[0].tx_sec
+            }, callback));
         },
-        function (callback) {
-            diskStat.usageRead(DISK_OPTS, value => {
-                prometheusMetrics.hyperflow_disc_read.set(labels, value || 0);
-                callback(null);
-            });
+        callback => {
+            diskStat.usageRead(DISK_OPTS, value => this._write('hflow_performance', {disk_read: value}, callback));
         },
-        function (callback) {
-            diskStat.usageWrite(DISK_OPTS, value => {
-                prometheusMetrics.hyperflow_disc_write.set(labels, value || 0);
-                callback(null);
-            });
-        },
-        function (callback) {
-            gateway.pushAdd({jobName: 'hyperflow-service'}, function (err, resp, body) {
-                if (err) {
-                    return callback(err);
-                }
-                console.log('Successfully pushed metrics to gateway');
-                callback(null);
-            });
+        callback => {
+            diskStat.usageWrite(DISK_OPTS, value => this._write('hflow_performance', {disk_write: value}, callback));
         }
+
     ], function (err) {
         if (err) {
-            console.warn(`Error while pushing metrics to gateway: ${err.message}`);
-        }
-
-        // ignore metrics error, just log them
-        if (callback) {
-            callback(null);
+            console.warn(`Error while pushing metrics to tsdb: ${err.message}`);
+        } else {
+            console.log('Successfully pushed metrics to tsdb');
         }
     });
-}
+};
 
-function reportExecTime(start, end, callback) {
-    const duration = end - start;
-    prometheusMetrics.hyperflow_task_start_time.set(labels, start);
-    prometheusMetrics.hyperflow_task_end_time.set(labels, end);
-    prometheusMetrics.hyperflow_task_execution_time.set(labels, duration);
-    prometheusMetrics.hyperflow_task_execution_time_buckets.observe(labels, duration);
+MetricDispatcher.prototype.reportExecTime = function (start, end, callback) {
+    this._write('hflow_task', {start: start, end: end}, err => callback(err, end - start));
+};
 
-    collectUsage(err => {
-        if (err) {
-            console.warn(err.message);
-        }
-
-        callback(null, duration);
-    });
-}
+MetricDispatcher.prototype.report = function (fields, callback) {
+    this._write('hflow_task', fields, callback);
+};
 
 function _init(callback) {
     fetchMetaData((err, metadata) => {
-        labels.containerID = err ? 'undefinedContainerId' : metadata.Containers[0].DockerId;
-
-        setInterval(collectUsage, COLLECT_INTERVAL);
-
-        callback(null);
+        const reporter = new MetricDispatcher(err, metadata);
+        callback(null, reporter);
     });
 
 }
@@ -179,5 +139,4 @@ if (START) {
     _init(() => console.log('Initialized monitoring service'));
 } else {
     exports.init = _init;
-    exports.reportExecTime = reportExecTime;
 }

@@ -10,8 +10,8 @@
     "async": "^2.6.2",
     "aws-sdk": "^2.429.0",
     "disk-stat": "^1.0.4",
+    "influx": "^5.0.7",
     "os-utils": "0.0.14",
-    "prom-client": "^11.3.0",
     "systeminformation": "^4.1.4"
   }
 }

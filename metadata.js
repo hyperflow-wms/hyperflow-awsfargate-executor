@@ -1,8 +1,6 @@
 'use strict';
 
-const http = require('http');
-
-const METADATA_URL = process.env.METADATA_URL || 'http://169.254.170.2/v2/metadata';
+const METADATA_URL = process.env.ECS_CONTAINER_METADATA_URI;
 
 let _metadata = null;
 
@@ -11,29 +9,9 @@ function fetch(callback) {
         return callback(null, _metadata)
     }
 
-    http.get(METADATA_URL, res => {
-        let body = '';
+    _metadata = METADATA_URL.substring(METADATA_URL.lastIndexOf('/'), METADATA_URL.length);
 
-        res.on('data', chunk => body += chunk);
-
-        res.on('end', () => {
-            console.log(`Received metadata ${body} from ${METADATA_URL}`);
-
-            try {
-                _metadata = JSON.parse(body)
-            } catch (e) {
-                console.warn(`Error while parsing metadata: ${e.message}`);
-                _metadata = null;
-                return callback(e);
-            }
-
-            callback(null, _metadata);
-        })
-    }).on('error', function (e) {
-        console.warn(`Error while requesting metadata from ${METADATA_URL}: ${e.message}`);
-
-        callback(e);
-    });
+    return callback(null, _metadata);
 }
 
 exports.fetch = fetch;
