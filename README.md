@@ -1,11 +1,9 @@
 # AWS Fargate executor for Hyperflow
 
-https://github.com/hyperflow-wms/hyperflow
-
 ## Dockerizing application
 Requirements: git, nodejs, docker
 
-git clone https://github.com/burkat/hyperflow-awsfargate-executor.git
+git clone https://github.com/hyperflow-wms/hyperflow-awsfargate-executor.git
 
 cd hyperflow-awsfargate-executor
 
@@ -25,14 +23,14 @@ Example steps:
 
 aws ecr get-login --no-include-email --region eu-west-1
 
-sudo docker login -u AWS -p string https://123456789.dkr.ecr.eu-west-1.amazonaws.com
+sudo docker login -u AWS -p <string> https://123456789.dkr.ecr.eu-west-1.amazonaws.com
   
 sudo docker tag handler:latest 123456789.dkr.ecr.eu-west-1.amazonaws.com/handler:latest
 
 sudo docker push 123456789.dkr.ecr.eu-west-1.amazonaws.com/handler:latest
 
 ## Create Fargate application
-First, go to think link https://eu-west-1.console.aws.amazon.com/ecs/home?region=eu-west-1#/getStarted to get started with creating a new Fargate Application.
+First, go to this link https://eu-west-1.console.aws.amazon.com/ecs/home?region=eu-west-1#/getStarted to get started with creating a new Fargate Application.
 
 Click get started, then select custom container and configure it. Give it some name, image URI can be found in ECR repository, for example:
 
@@ -48,6 +46,6 @@ On the next page, you should be able to see the status of the service you have j
 
 ## Running Hyperflow with AWS Fargate
 Update your workflow so it uses awsFargateCommand function. 
-Remember to add necessary things to config file.
+Remember to update config file.
 
 For more details check hyperflow page: https://github.com/hyperflow-wms/hyperflow. 
