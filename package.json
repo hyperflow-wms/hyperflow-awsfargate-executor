@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "main": "handler.js",
   "scripts": {
-    "start": "node handler.js"
+    "start": "node handler.js",
+    "dev": "node monitoring.js"
   },
   "dependencies": {
     "async": "^2.6.2",
-    "aws-sdk": "^2.429.0"
+    "aws-sdk": "^2.429.0",
+    "disk-stat": "^1.0.4",
+    "influx": "^5.0.7",
+    "os-utils": "0.0.14",
+    "systeminformation": "^4.1.4"
   }
 }
