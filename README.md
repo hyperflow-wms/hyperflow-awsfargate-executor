@@ -9,6 +9,8 @@ cd hyperflow-awsfargate-executor
 
 npm install
 
+copy selected dockerfile from handler_dockerfiles folder (default is enough in most cases)
+
 docker build -t handler .
 
 ## Deploying docker image on AWS Fargate
